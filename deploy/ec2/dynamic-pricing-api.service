@@ -1,0 +1,17 @@
+[Unit]
+Description=Dynamic Pricing Engine FastAPI Service
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/dynamic-pricing-engine
+EnvironmentFile=/opt/dynamic-pricing-engine/.env
+Environment=PROJECT_DIR=/opt/dynamic-pricing-engine
+Environment=VENV_DIR=/opt/dynamic-pricing-engine/.venv
+ExecStart=/opt/dynamic-pricing-engine/deploy/ec2/start_api.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

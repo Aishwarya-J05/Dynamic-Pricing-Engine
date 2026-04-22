@@ -1,0 +1,22 @@
+{
+  "dataset_profile": "kaggle_retail",
+  "data_path": "data\\raw\\kaggle\\retail_price.csv",
+  "best_model": "random_forest",
+  "best_model_metrics": {
+    "mae": 3.105130602318404,
+    "rmse": 6.731112904256394,
+    "r2": 0.9916132145995052
+  },
+  "all_models": {
+    "random_forest": {
+      "mae": 3.105130602318404,
+      "rmse": 6.731112904256394,
+      "r2": 0.9916132145995052
+    },
+    "xgboost": {
+      "mae": 3.311133864318597,
+      "rmse": 6.585257755436754,
+      "r2": 0.9919727398685239
+    }
+  }
+}
