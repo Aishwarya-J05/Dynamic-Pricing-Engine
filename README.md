@@ -3,7 +3,7 @@
 > Real-time ML-powered pricing engine with a FastAPI inference layer, Streamlit simulation dashboard, and full Docker + AWS EC2 deployment.
 
 **Live Demo:** [https://dynamic-pricing.duckdns.org](https://dynamic-pricing.duckdns.org)  
-**API Docs:** [https://dynamic-pricing.duckdns.org/api/docs](https://dynamic-pricing.duckdns.org/api/docs)
+**API Docs:** http://13.63.3.163:8000/docs
 
 ---
 
