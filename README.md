@@ -1,124 +1,146 @@
-# Dynamic Pricing Engine for E-commerce Website
+# Dynamic Pricing Engine for E-commerce
 
-An end-to-end intermediate MVP for real-time dynamic pricing with:
+> Real-time ML-powered pricing engine with a FastAPI inference layer, Streamlit simulation dashboard, and full Docker + AWS EC2 deployment.
 
-- Synthetic data generation for 50,000+ SKU style scenarios
-- Random Forest and XGBoost training pipelines
-- FastAPI inference API for real-time price recommendations across synthetic and Kaggle retail model profiles
-- Streamlit dashboard for simulation and monitoring
-- Competitor price blending, inventory adjustments, and flash sale detection
-- Optional Redis and Kafka integrations
+**Live Demo:** [https://dynamic-pricing.duckdns.org](https://dynamic-pricing.duckdns.org)  
+**API Docs:** [https://dynamic-pricing.duckdns.org/api/docs](https://dynamic-pricing.duckdns.org/api/docs)
+
+---
+
+## What It Does
+
+Takes a product's current signals — inventory level, competitor prices, demand velocity, time-of-day, customer segment — and returns a real-time price recommendation with confidence score and pricing breakdown.
+
+The engine combines an ML baseline (Random Forest / XGBoost) with deterministic guardrails: competitor blending, inventory pressure, demand surge detection, flash sale multipliers, and floor/ceiling bounds. No black box — every price change is traceable.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| ML Training | Scikit-learn, XGBoost, Pandas, NumPy |
+| API | FastAPI, Uvicorn, Pydantic |
+| Dashboard | Streamlit, Plotly |
+| Containerization | Docker, Docker Compose |
+| Deployment | AWS EC2 (Ubuntu 24.04), Nginx, Let's Encrypt |
+| Optional | Redis (caching), Kafka (streaming) |
+
+---
 
 ## Architecture
 
-1. `scripts/generate_sample_data.py` creates synthetic click, order, inventory, and competitor signals.
-2. `scripts/train_model.py` trains a baseline Random Forest and an XGBoost regressor, then saves the best model.
-3. `app/api.py` serves real-time pricing recommendations through FastAPI.
-4. `app/dashboard.py` provides a Streamlit control panel for scenario analysis and monitoring.
-5. `app/streaming.py` provides optional Kafka event producer and consumer helpers.
+```
+scripts/generate_sample_data.py   →  50,000+ synthetic SKU scenarios
+scripts/train_model.py            →  Random Forest + XGBoost, best model saved
+app/api.py                        →  FastAPI: real-time price recommendations
+app/dashboard.py                  →  Streamlit: scenario builder + monitoring
+app/pricing_engine.py             →  Core pricing logic with guardrails
+app/feature_engineering.py        →  Feature pipeline shared by train + serve
+app/streaming.py                  →  Kafka event producer/consumer (optional)
+```
+
+**Pricing logic flow:**
+
+```
+Raw signals → Feature engineering → ML baseline price
+    → Competitor blend (70/30) → Inventory adjustment
+    → Demand surge multiplier → Flash sale check
+    → Floor/ceiling guardrails → Final recommended price
+```
+
+---
 
 ## Project Structure
 
-```text
-app/
-  api.py
-  config.py
-  dashboard.py
-  feature_engineering.py
-  modeling.py
-  pricing_engine.py
-  schemas.py
-  streaming.py
-data/
-  processed/
-  raw/
-models/
-scripts/
-  generate_sample_data.py
-  train_model.py
-tests/
-  smoke_test.py
+```
+dynamic-pricing-engine/
+├── app/
+│   ├── api.py                  # FastAPI app and route handlers
+│   ├── config.py               # Environment config
+│   ├── dashboard.py            # Streamlit dashboard
+│   ├── feature_engineering.py  # Shared feature pipeline
+│   ├── modeling.py             # Model loading and inference
+│   ├── pricing_engine.py       # Core pricing guardrails
+│   ├── schemas.py              # Pydantic request/response schemas
+│   └── streaming.py            # Kafka helpers (optional)
+├── data/
+│   ├── processed/
+│   └── raw/
+├── deploy/
+│   └── ec2/                    # systemd service files + startup scripts
+├── models/                     # Saved model artifacts
+├── scripts/
+│   ├── generate_sample_data.py
+│   └── train_model.py
+├── tests/
+│   └── smoke_test.py
+├── docker-compose.yml
+├── Dockerfile
+├── Dockerfile.streamlit
+└── requirements.txt
 ```
 
-## Quick Start
+---
 
-### 1. Create a virtual environment
+## Quick Start (Local)
 
-```powershell
+### 1. Setup
+
+```bash
 python -m venv .venv
-.venv\Scripts\Activate.ps1
+source .venv/bin/activate        # Windows: .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-### 2. Generate sample data
+### 2. Generate data and train
 
-```powershell
+```bash
+# Synthetic data
 python scripts/generate_sample_data.py --rows 25000
-```
-
-### 3. Train the model
-
-```powershell
 python scripts/train_model.py
-```
 
-### Train on a real Kaggle dataset
-
-Recommended dataset:
-
-- Kaggle `Retail Price Optimization`: https://www.kaggle.com/datasets/suddharshan/retail-price-optimization
-
-Download `retail_price.csv` and place it at:
-
-```text
-data/raw/kaggle/retail_price.csv
-```
-
-Then train with:
-
-```powershell
+# Or train on Kaggle Retail Price Optimization dataset
+# Download retail_price.csv → data/raw/kaggle/retail_price.csv
 python scripts/train_model.py --profile kaggle_retail --data-path data/raw/kaggle/retail_price.csv
 ```
 
-Notes:
+### 3. Run services
 
-- This trains a real-dataset pricing model using the Kaggle retail schema.
-- The FastAPI service now exposes a dedicated Kaggle request schema at `/price/recommend/kaggle` when a `kaggle_retail` model is loaded.
-
-### 4. Run the FastAPI service
-
-```powershell
+```bash
+# API
 uvicorn app.api:app --reload
-```
+# → http://127.0.0.1:8000/docs
 
-Docs will be available at `http://127.0.0.1:8000/docs`.
-
-### 5. Run the Streamlit dashboard
-
-```powershell
+# Dashboard (separate terminal)
 streamlit run app/dashboard.py
+# → http://127.0.0.1:8501
 ```
 
-## API Endpoints
+---
 
-- `GET /health`: Service health and artifact status
-- `POST /price/recommend`: Returns a recommended price, confidence score, and pricing signals for the synthetic profile
-- `POST /price/recommend/kaggle`: Returns a recommended price and price gap analysis for the Kaggle retail profile
-- `POST /events/order`: Registers an order event for flash sale detection
-- `GET /monitoring/summary`: Returns pricing and event summary metrics
+## Docker (Recommended)
 
-## Core Pricing Logic
+```bash
+docker compose up --build
+```
 
-The engine combines:
+| Service | URL |
+|---------|-----|
+| Streamlit Dashboard | http://localhost:8501 |
+| FastAPI Docs | http://localhost:8000/docs |
 
-- ML-predicted baseline price
-- Competitor blending: default `70% model / 30% competitor`
-- Inventory pressure adjustments
-- Demand surge adjustments
-- Flash sale emergency multiplier
-- Floor and ceiling guardrails
+`data/` and `models/` are volume-mounted so retrained artifacts persist outside containers.
 
-## Example Request
+---
+
+## API Reference
+
+### `POST /price/recommend`
+
+Real-time price recommendation for the synthetic product profile.
+
+**Example request:**
 
 ```json
 {
@@ -142,137 +164,71 @@ The engine combines:
 }
 ```
 
-## AWS Deployment Notes
+### Other endpoints
 
-- EC2: Host FastAPI and Streamlit on one instance for a demo, or split them later if needed.
-- S3: Good fit for model artifacts and price history snapshots.
-- Lambda: Optional competitor polling and scheduled retraining.
-- CloudWatch: Use for API logs, dashboard process logs, and alert thresholds.
-- Redis: Cache recent recommendations and event counters.
-- Kafka: Use self-managed Kafka for demos, or Amazon MSK only after checking cost.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Service health and artifact status |
+| POST | `/price/recommend` | Synthetic profile price recommendation |
+| POST | `/price/recommend/kaggle` | Kaggle retail profile price recommendation |
+| POST | `/events/order` | Register order event for flash sale detection |
+| GET | `/monitoring/summary` | Pricing and event summary metrics |
+| GET | `/metrics` | Prometheus-compatible metrics |
 
-Current AWS note:
+---
 
-- AWS Free Tier changed on July 15, 2025. Official AWS docs say accounts created before July 15, 2025 can use `t2.micro` free tier eligibility in supported regions, while accounts created on or after July 15, 2025 use a newer credit-based/free-plan model with eligible instance types such as `t3.micro`. Verify your account type before launch.
-- Amazon S3 is covered through the newer AWS Free Tier credit/free-plan model, not a simple permanent 5 GB rule for all new accounts.
-- Amazon MSK pricing is pay-as-you-go on the official AWS pricing page. Treat MSK as a potential paid service unless your account credits cover it.
+## AWS EC2 Deployment
 
-## Docker Deployment
+Deployed on a `t2.micro` (Ubuntu 24.04) with Docker Compose + Nginx reverse proxy + Let's Encrypt SSL.
 
-Build and run the full stack locally or on a VM:
+### Infrastructure
 
-```powershell
-docker compose up --build
+```
+Internet → Nginx (port 443/80) → Docker containers
+                                  ├── FastAPI  (port 8000)
+                                  └── Streamlit (port 8501)
 ```
 
-Then open:
-
-- API docs: `http://127.0.0.1:8000/docs`
-- Streamlit dashboard: `http://127.0.0.1:8501`
-
-Notes:
-
-- Compose mounts `data/` and `models/` from the host so retrained artifacts persist outside the containers.
-- Replace `.env.example` with a real `.env` file before production deployment.
-
-If you want to build each image separately:
-
-```powershell
-docker build -t dynamic-pricing-api -f Dockerfile .
-docker build -t dynamic-pricing-dashboard -f Dockerfile.streamlit .
-```
-
-## EC2 Deployment
-
-Recommended target path:
-
-```text
-/opt/dynamic-pricing-engine
-```
-
-Quick setup outline on Ubuntu EC2:
+### Deploy from scratch
 
 ```bash
-sudo apt update
-sudo apt install -y python3.13-venv
-cd /opt
-sudo mkdir -p dynamic-pricing-engine
-sudo chown ubuntu:ubuntu dynamic-pricing-engine
-```
+# On EC2 — install Docker
+sudo apt update && sudo apt install -y docker.io docker-compose-v2
+sudo usermod -aG docker $USER && newgrp docker
 
-Copy the repo to `/opt/dynamic-pricing-engine`, then:
+# Upload project (from local machine)
+scp -i key.pem project.zip ubuntu@<ec2-ip>:/home/ubuntu/
 
-```bash
+# On EC2 — extract and run
+sudo mkdir -p /opt/dynamic-pricing-engine
+sudo chown ubuntu:ubuntu /opt/dynamic-pricing-engine
 cd /opt/dynamic-pricing-engine
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-cp .env.example .env
-chmod +x deploy/ec2/start_api.sh
-chmod +x deploy/ec2/start_dashboard.sh
-python scripts/generate_sample_data.py --rows 25000
-python scripts/train_model.py --profile kaggle_retail --data-path data/raw/kaggle/retail_price.csv
-```
-
-Important:
-
-- The current Streamlit dashboard expects a `kaggle_retail` model artifact.
-- If you deploy both API and dashboard together, train the `kaggle_retail` profile and use `POST /price/recommend/kaggle`.
-- If you want the synthetic API profile in production, deploy the API by itself or refactor the dashboard to use the synthetic schema.
-
-Install the included `systemd` services:
-
-```bash
-sudo cp deploy/ec2/dynamic-pricing-api.service /etc/systemd/system/
-sudo cp deploy/ec2/dynamic-pricing-dashboard.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable dynamic-pricing-api
-sudo systemctl enable dynamic-pricing-dashboard
-sudo systemctl start dynamic-pricing-api
-sudo systemctl start dynamic-pricing-dashboard
-sudo systemctl status dynamic-pricing-api
-sudo systemctl status dynamic-pricing-dashboard
-```
-
-Open these after the instance is up and the EC2 security group allows inbound `8000` and `8501`:
-
-```text
-http://<your-ec2-public-ip>:8000/docs
-http://<your-ec2-public-ip>:8501
-```
-
-Suggested EC2 security group inbound rules for a demo:
-
-- `22` from your IP only
-- `8000` from your IP or a narrow trusted range
-- `8501` from your IP or a narrow trusted range
-
-For public production access, put Nginx in front and expose only `80` and `443`.
-
-## EC2 With Docker
-
-If you prefer containers on EC2 instead of `systemd`, install Docker on Ubuntu and run:
-
-```bash
-cd /opt/dynamic-pricing-engine
+unzip ~/project.zip
 docker compose up --build -d
-docker compose ps
 ```
 
-Then open:
+### Security group inbound rules
 
-```text
-http://<your-ec2-public-ip>:8000/docs
-http://<your-ec2-public-ip>:8501
-```
+| Port | Purpose | Source |
+|------|---------|--------|
+| 22 | SSH | Your IP only |
+| 80 | HTTP (redirects to HTTPS) | 0.0.0.0/0 |
+| 443 | HTTPS | 0.0.0.0/0 |
 
-## Extension Ideas
+---
 
-- Replace synthetic data with marketplace telemetry
-- Add Flink or Spark Structured Streaming for event windows
-- Add SHAP explainability for pricing decisions
-- Introduce RL policy optimization for multi-step pricing
-- Connect to Amazon Personalize for customer-level contextual pricing
-"# Dynamic-Pricing-Engine" 
-"# Dynamic-Pricing-Engine" 
+## Extension Roadmap
+
+- [ ] SHAP explainability for per-prediction price breakdowns
+- [ ] RL policy optimization for multi-step pricing strategies
+- [ ] Flink / Spark Structured Streaming for real-time event windows
+- [ ] Amazon Personalize integration for customer-level contextual pricing
+- [ ] A/B testing framework for pricing strategy comparison
+- [ ] Replace synthetic data with live marketplace telemetry
+
+---
+
+## Author
+
+**Aishwarya Joshi** — AI/ML Engineer  
+[GitHub](https://github.com/Aishwarya-J05) · [LinkedIn](https://linkedin.com/in/aishwaryajoshiaiml) · [Hugging Face](https://huggingface.co/AishwaryaNJ)
